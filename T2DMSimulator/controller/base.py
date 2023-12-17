@@ -1,6 +1,6 @@
 from collections import namedtuple
 
-Action = namedtuple('ctrller_action', ['basal', 'bolus', 'CHO'])
+Action = namedtuple('ctrller_action', ['basal', 'bolus'])
 
 
 class Controller(object):

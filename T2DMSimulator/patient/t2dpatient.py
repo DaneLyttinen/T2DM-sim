@@ -8,11 +8,11 @@ import pkg_resources
 
 logger = logging.getLogger(__name__)
 
-Action = namedtuple("patient_action", ['CHO'])
+Action = namedtuple("patient_action", ['CHO', 'insulin'])
 Observation = namedtuple("observation", ['Gsub'])
 
 PATIENT_PARA_FILE = pkg_resources.resource_filename(
-    'simglucose', 'params/vpatient_params.csv')
+    'T2DMSimulator', 'params/vpatient_params.csv')
 
 
 class T2DPatient(Patient):

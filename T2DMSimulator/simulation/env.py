@@ -1,10 +1,10 @@
-from T2DMSimulator.patient.t2dpatient import Action
-from T2DMSimulator.analysis.risk import risk_index
+from patient.t2dpatient import Action
+from analysis.risk import risk_index
 import pandas as pd
 from datetime import timedelta
 import logging
 from collections import namedtuple
-from T2DMSimulator.simulation.rendering import Viewer
+from simulation.rendering import Viewer
 
 try:
     from rllab.envs.base import Step
@@ -33,7 +33,7 @@ def risk_diff(BG_last_hour):
         return risk_prev - risk_current
 
 
-class T1DSimEnv(object):
+class T2DSimEnv(object):
     def __init__(self, patient, sensor, pump, scenario):
         self.patient = patient
         self.sensor = sensor

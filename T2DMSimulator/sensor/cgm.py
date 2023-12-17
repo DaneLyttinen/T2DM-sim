@@ -6,7 +6,7 @@ import pkg_resources
 
 logger = logging.getLogger(__name__)
 SENSOR_PARA_FILE = pkg_resources.resource_filename(
-    'simglucose', 'params/sensor_params.csv')
+    'T2DMSimulator', 'params/sensor_params.csv')
 
 
 class CGMSensor(object):
