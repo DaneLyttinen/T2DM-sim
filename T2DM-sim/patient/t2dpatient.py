@@ -8,7 +8,7 @@ import pkg_resources
 
 logger = logging.getLogger(__name__)
 
-Action = namedtuple("patient_action", ['CHO', 'insulin'])
+Action = namedtuple("patient_action", ['CHO'])
 Observation = namedtuple("observation", ['Gsub'])
 
 PATIENT_PARA_FILE = pkg_resources.resource_filename(
