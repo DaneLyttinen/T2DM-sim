@@ -2,18 +2,20 @@ import numpy as np
 import pkg_resources
 from datetime import datetime
 from gymnasium import spaces, utils as gymnasium_utils
-from simglucose.simulation.env import T2DSimEnv as _T2DSimEnv
-from simglucose.patient.T2dpatient import T2DPatient
-from simglucose.sensor.cgm import CGMSensor
-from simglucose.actuator.pump import InsulinPump
-from simglucose.simulation.scenario_gen import RandomScenario
-from simglucose.controller.base import Action
+from T2DMSimulator.simulation.env import T2DSimEnv as _T2DSimEnv
+from T2DMSimulator.patient.t2dpatient import T2DPatient
+from T2DMSimulator.sensor.cgm import CGMSensor
+from T2DMSimulator.actuator.pump import InsulinPump
+from T2DMSimulator.simulation.scenario_gen import RandomScenario
+from T2DMSimulator.controller.base import Action
+from gymnasium.utils import seeding
+from gymnasium import Env
 
 PATIENT_PARA_FILE = pkg_resources.resource_filename(
     "simglucose", "params/vpatient_params.csv"
 )
 
-class T2DSimGymnasiumEnv(gymnasium.Env):
+class T2DSimGymnasiumEnv(Env):
     metadata = {"render_modes": ["human"]}
     MAX_BG = 1000
     SENSOR_HARDWARE = "Dexcom"
