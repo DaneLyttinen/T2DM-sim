@@ -1,7 +1,7 @@
 import numpy as np
 from T2DMSimulator.glucose.GlucoseParameters import GlucoseParameters
 
-class FodeSimulator:
+class GlucoseDynamics:
     def __init__(self, t, x, Dg, stressv, HRv, T, glucoseParameters: GlucoseParameters, basal):
         self.t = t
         self.x = x
@@ -15,24 +15,24 @@ class FodeSimulator:
         self.dx = np.zeros_like(x)
 
     def compute(self):
-        Ra, kempt = self.glucose_absorption_submodel()
-        EGW,EL,EP = self.metformin_submodel()
-        self.vildagliptin_submodel()
-        self.physical_activity_submodel()
-        rKGE, MIHGPinft, MIHGUinft, rHGU,rHGP, rPGU = self.glucose_submodel_rates(EGW, EL, EP)
-        self.rates_dynamic_model(MIHGPinft, MIHGUinft)
-        self.glucose_submodel(Ra, rKGE, rHGU,rHGP, rPGU)
-        self.glucagon_submodel()
-        self.glp1_submodel(kempt)
-        S = self.pancreas_submodel()
+        Ra, kempt = self.__glucose_absorption_submodel()
+        EGW,EL,EP = self.__metformin_submodel()
+        self.__vildagliptin_submodel()
+        self.__physical_activity_submodel()
+        rKGE, MIHGPinft, MIHGUinft, rHGU,rHGP, rPGU = self.__glucose_submodel_rates(EGW, EL, EP)
+        self.__rates_dynamic_model(MIHGPinft, MIHGUinft)
+        self.__glucose_submodel(Ra, rKGE, rHGU,rHGP, rPGU)
+        self.__glucagon_submodel()
+        self.__glp1_submodel(kempt)
+        S = self.__pancreas_submodel()
         # insulin
-        rPIR, rLIC, rKIC, rPIC = self.insulin_submodel_rates(S)
-        self.long_acting_insulin_equations()
-        self.fast_acting_insulin_equations()
-        self.insulin_submodel(rPIR, rLIC, rKIC, rPIC)
+        rPIR, rLIC, rKIC, rPIC = self.__insulin_submodel_rates(S)
+        self.__long_acting_insulin_equations()
+        self.__fast_acting_insulin_equations()
+        self.__insulin_submodel(rPIR, rLIC, rKIC, rPIC)
         return self.dx
     
-    def insulin_submodel(self, rPIR, rLIC, rKIC, rPIC):
+    def __insulin_submodel(self, rPIR, rLIC, rKIC, rPIC):
         insulin = self.glucoseParameters.InsulinSubmodel
         fast_insulin = self.glucoseParameters.fastActingInsulinSubmodel
         long_insulin = self.glucoseParameters.longActingInsulinSubmodel
@@ -59,7 +59,7 @@ class FodeSimulator:
         self.dx[52] = dXIS
         self.dx[53] = dXIinj
     
-    def fast_acting_insulin_equations(self):
+    def __fast_acting_insulin_equations(self):
         insulin = self.glucoseParameters.fastActingInsulinSubmodel
         Hfa, Dfa, Ifa = self.x[17], self.x[18], self.x[55]
         dHfa = -insulin.pfa * (Hfa - insulin.qfa * Dfa ** 3)
@@ -69,7 +69,7 @@ class FodeSimulator:
         self.dx[18] = dDfa
         self.dx[55] = dIfa
     
-    def long_acting_insulin_equations(self):
+    def __long_acting_insulin_equations(self):
         insulin = self.glucoseParameters.longActingInsulinSubmodel
         Bla, Hla, Dla, Ila = self.x[19], self.x[20], self.x[21], self.x[54]
         dBla = -insulin.kla * Bla * (insulin.Cmax / (1 + Hla))
@@ -81,7 +81,7 @@ class FodeSimulator:
         self.dx[21] = dDla
         self.dx[54] = dIla
 
-    def insulin_submodel_rates(self, S):
+    def __insulin_submodel_rates(self, S):
         insulin = self.glucoseParameters.InsulinSubmodel
         rPIR = (S / self.basal['SB']) * self.basal['rPIR']
         rLIC = 0.4 * (insulin.QIA * self.x[26] + insulin.QIG * self.x[27] + rPIR)
@@ -89,7 +89,7 @@ class FodeSimulator:
         rPIC = self.x[31] / ((0.85) / (0.15 * insulin.QIP) - 20 / insulin.VIPF)
         return rPIR, rLIC, rKIC, rPIC
 
-    def pancreas_submodel(self):
+    def __pancreas_submodel(self):
         pancreas = self.glucoseParameters.pancreasModel
         PHI, mpan, P, R = self.x[42], self.x[22],self.x[23], self.x[24]
         XG = self.x[34] ** (3.27) / (1.32 ** 3.27 + 5.93 * self.x[34] ** 3.02)
@@ -107,7 +107,7 @@ class FodeSimulator:
         self.dx[24] = dR
         return S
     
-    def glp1_submodel(self, kempt):
+    def __glp1_submodel(self, kempt):
         glp1 = self.glucoseParameters.gLP1Submodel
         vildagliptin = self.glucoseParameters.vildagliptinSubmodel
         dphi = glp1.zeta * kempt * self.x[1] - self.x[41] / glp1.tphi
@@ -115,9 +115,8 @@ class FodeSimulator:
         self.dx[41] = dphi
         self.dx[42] = dPHI
     
-    def glucagon_submodel(self):
+    def __glucagon_submodel(self):
         glucagon = self.glucoseParameters.glucagonSubmodel
-        
         rBPGammaR = 9.1
         MGPGammaR = 1.31 - 0.61 * np.tanh(1.06 * ((self.x[34] / self.basal['GH']) - 0.47))
         MIPGammaR = 2.93 - 2.09 * np.tanh(4.18 * ((self.x[26] / self.basal['IH']) - 0.62))
@@ -125,7 +124,7 @@ class FodeSimulator:
         dGamma = (1 / glucagon.VGamma) * ((1 + self.stress) * rPGammaR - 9.1 * self.x[40])
         self.dx[40] = dGamma
     
-    def glucose_submodel(self, Ra, rKGE,rHGU, rHGP, rPGU):
+    def __glucose_submodel(self, Ra, rKGE,rHGU, rHGP, rPGU):
         glucose = self.glucoseParameters.glucoseSubmodel
         physical = self.glucoseParameters.physicalActivityParameters
         GBC, GBF, GH, GG, GL, GK, GPC, GPF = self.x[32], self.x[33], self.x[34], self.x[35], self.x[36], self.x[37], self.x[38], self.x[39]
@@ -154,7 +153,7 @@ class FodeSimulator:
         self.dx[50] = dXGP
         self.dx[56] = dGHint
 
-    def glucose_absorption_submodel(self):
+    def __glucose_absorption_submodel(self):
         absorption = self.glucoseParameters.glucoseAbsorptionSubmodel
         DNq = self.x[47]
         dDe = -absorption.kmin * self.x[46]
@@ -175,7 +174,7 @@ class FodeSimulator:
         self.dx[47] = dDNq
         return absorption.fg * absorption.kabs * qint / 70 #Ra
     
-    def glucose_submodel_rates(self, EGW,EL,EP):
+    def __glucose_submodel_rates(self, EGW,EL,EP):
         rates = self.glucoseParameters.glucoseMetabolicRates
         cIPGU, cIHGPinft,cGHGP,cIHGUinft,cGHGU,dIPGU,dIHGPinft,dGHGP,dIHGUinft,dGHGU = rates.c1, rates.c2,rates.c3,rates.c4,rates.c5,rates.d1,rates.d2,rates.d3,rates.d4,rates.d5
         IL, IBL, GBL, GL, GK = self.x[28], self.basal['IL'], self.basal['GL'], self.x[36], self.x[37]
@@ -199,7 +198,7 @@ class FodeSimulator:
         rPGU = rPGU * (1 + EP)
         return rKGE, MIHGPinft, MIHGUinft, rHGU,rHGP, rPGU
 
-    def rates_dynamic_model(self, MIHGPinft, MIHGUinft):
+    def __rates_dynamic_model(self, MIHGPinft, MIHGUinft):
         dMIHGP = 0.04 * (MIHGPinft - self.x[43])
         dfr = 0.0154 * (0.5 * (2.7 * np.tanh(0.39 * self.x[40] / self.basal['Gamma']) - 1) - self.x[44])
         dMIHGU = 0.04 * (MIHGUinft - self.x[45])
@@ -207,7 +206,7 @@ class FodeSimulator:
         self.dx[44] = dfr
         self.dx[45] = dMIHGU
     
-    def metformin_submodel(self):
+    def __metformin_submodel(self):
         metformin = self.glucoseParameters.metforminSubmodel
         MO1,MO2,MGl,MGW,ML,MP = self.x[3],self.x[4],self.x[5],self.x[6],self.x[7],self.x[8]
         dMO1 = -metformin.alpham * MO1
@@ -227,7 +226,7 @@ class FodeSimulator:
         EP = (metformin.vPmax * (MP) ** (metformin.nP)) / (metformin.phiP50 ** (metformin.nP) + (MP) ** (metformin.nP))
         return EGW,EL,EP
     
-    def vildagliptin_submodel(self):
+    def __vildagliptin_submodel(self):
         vildagliptin = self.glucoseParameters.vildagliptinSubmodel
         AG1,AG2,Ac,Ap,DRc,DRp = self.x[9],self.x[10],self.x[11],self.x[12],self.x[13],self.x[14]
         dAG1 = -vildagliptin.ka1 * AG1
@@ -243,7 +242,7 @@ class FodeSimulator:
         self.dx[13] = dDRc
         self.dx[14] = dDRp
     
-    def physical_activity_submodel(self):
+    def __physical_activity_submodel(self):
         physical = self.glucoseParameters.physicalActivityParameters
         E1,E2,TE = self.x[15],self.x[16],self.x[48]
         HR = np.interp(self.t, self.T, self.HRv)
@@ -254,7 +253,3 @@ class FodeSimulator:
         self.dx[15] = dE1
         self.dx[16] = dE2
         self.dx[48] = dTE
-
-# Usage example
-# fode_simulator = FodeSimulator(obj, t, x, Dg, stressv, HRv, T, param, basal)
-# results = fode_simulator.compute()
