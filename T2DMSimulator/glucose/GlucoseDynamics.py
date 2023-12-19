@@ -2,7 +2,7 @@ import numpy as np
 from T2DMSimulator.glucose.GlucoseParameters import GlucoseParameters
 
 class GlucoseDynamics:
-    def __init__(self, t, x, Dg, stressv, HRv, T, glucoseParameters: GlucoseParameters, basal):
+    def __init__(self, t, x, Dg, stressv, HRv, T, basal):
         self.t = t
         self.x = x
         self.Dg = Dg
@@ -10,7 +10,7 @@ class GlucoseDynamics:
         self.HRv = HRv
         self.T = T
         self.stress = np.interp(self.t, self.T, self.stressv)
-        self.glucoseParameters = glucoseParameters
+        self.glucose_parameters = GlucoseParameters()
         self.basal = basal
         self.dx = np.zeros_like(x)
 
@@ -33,9 +33,9 @@ class GlucoseDynamics:
         return self.dx
     
     def __insulin_submodel(self, rPIR, rLIC, rKIC, rPIC):
-        insulin = self.glucoseParameters.InsulinSubmodel
-        fast_insulin = self.glucoseParameters.fastActingInsulinSubmodel
-        long_insulin = self.glucoseParameters.longActingInsulinSubmodel
+        insulin = self.glucose_parameters.InsulinSubmodel
+        fast_insulin = self.glucose_parameters.fastActingInsulinSubmodel
+        long_insulin = self.glucose_parameters.longActingInsulinSubmodel
         VIB, VIH, QIB, QIL, QIK, QIP, QIH, QIG, VIG, VIL, QIA, VIK, VIPC, VIPF, TIP = insulin.VIB, insulin.VIH, insulin.QIB, insulin.QIL, insulin.QIK, insulin.QIP, insulin.QIH, insulin.QIG, insulin.VIG, insulin.VIL, insulin.QIA, insulin.VIK, insulin.VIPC, insulin.VIPF, insulin.TIP
         IB, IH, IG, IL, IK, IPC, IPF = self.x[25], self.x[26], self.x[27], self.x[28], self.x[29], self.x[30], self.x[31]
         dIB = (QIB / VIB) * (IH - IB)
@@ -60,7 +60,7 @@ class GlucoseDynamics:
         self.dx[53] = dXIinj
     
     def __fast_acting_insulin_equations(self):
-        insulin = self.glucoseParameters.fastActingInsulinSubmodel
+        insulin = self.glucose_parameters.fastActingInsulinSubmodel
         Hfa, Dfa, Ifa = self.x[17], self.x[18], self.x[55]
         dHfa = -insulin.pfa * (Hfa - insulin.qfa * Dfa ** 3)
         dDfa = insulin.pfa * (Hfa - insulin.qfa * Dfa ** 3) - insulin.bfa * Dfa / (1 + Ifa)
@@ -70,7 +70,7 @@ class GlucoseDynamics:
         self.dx[55] = dIfa
     
     def __long_acting_insulin_equations(self):
-        insulin = self.glucoseParameters.longActingInsulinSubmodel
+        insulin = self.glucose_parameters.longActingInsulinSubmodel
         Bla, Hla, Dla, Ila = self.x[19], self.x[20], self.x[21], self.x[54]
         dBla = -insulin.kla * Bla * (insulin.Cmax / (1 + Hla))
         dHla = -insulin.pla * (Hla - insulin.qla * Dla ** 3) + insulin.kla * Bla * (insulin.Cmax / (1 + Hla))
@@ -82,7 +82,7 @@ class GlucoseDynamics:
         self.dx[54] = dIla
 
     def __insulin_submodel_rates(self, S):
-        insulin = self.glucoseParameters.InsulinSubmodel
+        insulin = self.glucose_parameters.InsulinSubmodel
         rPIR = (S / self.basal['SB']) * self.basal['rPIR']
         rLIC = 0.4 * (insulin.QIA * self.x[26] + insulin.QIG * self.x[27] + rPIR)
         rKIC = 0.3 * insulin.QIK * self.x[29]
@@ -90,7 +90,7 @@ class GlucoseDynamics:
         return rPIR, rLIC, rKIC, rPIC
 
     def __pancreas_submodel(self):
-        pancreas = self.glucoseParameters.pancreasModel
+        pancreas = self.glucose_parameters.pancreasModel
         PHI, mpan, P, R = self.x[42], self.x[22],self.x[23], self.x[24]
         XG = self.x[34] ** (3.27) / (1.32 ** 3.27 + 5.93 * self.x[34] ** 3.02)
         Pinft = XG ** (1.11) + pancreas.zeta1 * PHI
@@ -108,15 +108,15 @@ class GlucoseDynamics:
         return S
     
     def __glp1_submodel(self, kempt):
-        glp1 = self.glucoseParameters.gLP1Submodel
-        vildagliptin = self.glucoseParameters.vildagliptinSubmodel
+        glp1 = self.glucose_parameters.gLP1Submodel
+        vildagliptin = self.glucose_parameters.vildagliptinSubmodel
         dphi = glp1.zeta * kempt * self.x[1] - self.x[41] / glp1.tphi
         dPHI = (1 / glp1.VPHI) * (self.x[41] / glp1.tphi - (glp1.Kout + (vildagliptin.RmaxC - self.x[13]) * glp1.CF2) * self.x[42])
         self.dx[41] = dphi
         self.dx[42] = dPHI
     
     def __glucagon_submodel(self):
-        glucagon = self.glucoseParameters.glucagonSubmodel
+        glucagon = self.glucose_parameters.glucagonSubmodel
         rBPGammaR = 9.1
         MGPGammaR = 1.31 - 0.61 * np.tanh(1.06 * ((self.x[34] / self.basal['GH']) - 0.47))
         MIPGammaR = 2.93 - 2.09 * np.tanh(4.18 * ((self.x[26] / self.basal['IH']) - 0.62))
@@ -125,8 +125,8 @@ class GlucoseDynamics:
         self.dx[40] = dGamma
     
     def __glucose_submodel(self, Ra, rKGE,rHGU, rHGP, rPGU):
-        glucose = self.glucoseParameters.glucoseSubmodel
-        physical = self.glucoseParameters.physicalActivityParameters
+        glucose = self.glucose_parameters.glucoseSubmodel
+        physical = self.glucose_parameters.physicalActivityParameters
         GBC, GBF, GH, GG, GL, GK, GPC, GPF = self.x[32], self.x[33], self.x[34], self.x[35], self.x[36], self.x[37], self.x[38], self.x[39]
         rBGU, rGGU,rRBCU = self.basal['rBGU'],self.basal['rGGU'],self.basal['rRBCU']
         E1,E2 = self.x[15],self.x[16]
@@ -154,7 +154,7 @@ class GlucoseDynamics:
         self.dx[56] = dGHint
 
     def __glucose_absorption_submodel(self):
-        absorption = self.glucoseParameters.glucoseAbsorptionSubmodel
+        absorption = self.glucose_parameters.glucoseAbsorptionSubmodel
         DNq = self.x[47]
         dDe = -absorption.kmin * self.x[46]
         dDNq = absorption.kmin * (self.Dg - DNq)
@@ -175,7 +175,7 @@ class GlucoseDynamics:
         return absorption.fg * absorption.kabs * qint / 70 #Ra
     
     def __glucose_submodel_rates(self, EGW,EL,EP):
-        rates = self.glucoseParameters.glucoseMetabolicRates
+        rates = self.glucose_parameters.glucoseMetabolicRates
         cIPGU, cIHGPinft,cGHGP,cIHGUinft,cGHGU,dIPGU,dIHGPinft,dGHGP,dIHGUinft,dGHGU = rates.c1, rates.c2,rates.c3,rates.c4,rates.c5,rates.d1,rates.d2,rates.d3,rates.d4,rates.d5
         IL, IBL, GBL, GL, GK = self.x[28], self.basal['IL'], self.basal['GL'], self.x[36], self.x[37]
         MIPGU = (7.03 + rates.SPGU * 6.52 * np.tanh(cIPGU * (self.x[31] / self.basal['IPF'] - dIPGU))) / (7.03 + rates.SPGU * 6.52 * np.tanh(cIPGU * (1 - dIPGU)))
@@ -207,7 +207,7 @@ class GlucoseDynamics:
         self.dx[45] = dMIHGU
     
     def __metformin_submodel(self):
-        metformin = self.glucoseParameters.metforminSubmodel
+        metformin = self.glucose_parameters.metforminSubmodel
         MO1,MO2,MGl,MGW,ML,MP = self.x[3],self.x[4],self.x[5],self.x[6],self.x[7],self.x[8]
         dMO1 = -metformin.alpham * MO1
         dMO2 = -metformin.betam * MO2
@@ -227,7 +227,7 @@ class GlucoseDynamics:
         return EGW,EL,EP
     
     def __vildagliptin_submodel(self):
-        vildagliptin = self.glucoseParameters.vildagliptinSubmodel
+        vildagliptin = self.glucose_parameters.vildagliptinSubmodel
         AG1,AG2,Ac,Ap,DRc,DRp = self.x[9],self.x[10],self.x[11],self.x[12],self.x[13],self.x[14]
         dAG1 = -vildagliptin.ka1 * AG1
         dAG2 = vildagliptin.ka1 * AG1 - vildagliptin.ka2 * AG2
@@ -243,7 +243,7 @@ class GlucoseDynamics:
         self.dx[14] = dDRp
     
     def __physical_activity_submodel(self):
-        physical = self.glucoseParameters.physicalActivityParameters
+        physical = self.glucose_parameters.physicalActivityParameters
         E1,E2,TE = self.x[15],self.x[16],self.x[48]
         HR = np.interp(self.t, self.T, self.HRv)
         dE1 = (1 / physical.tHR) * (HR - physical.HRb - E1)
