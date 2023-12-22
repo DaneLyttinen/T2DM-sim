@@ -6,10 +6,11 @@ from collections import namedtuple
 import logging
 import pkg_resources
 from T2DMSimulator.glucose.GlucoseDynamics import GlucoseDynamics
-
+from T2DMSimulator.glucose.GlucoseParameters import GlucoseParameters
+from T2DMSimulator.glucose.glucose_initializer import GlucoseInitializer
 logger = logging.getLogger(__name__)
 
-Action = namedtuple("patient_action", ['CHO', 'insulin'])
+Action = namedtuple("patient_action", ['CHO', 'insulin_fast', 'insulin_long', 'metformin', 'vildagliptin', 'stress', 'physical'])
 Observation = namedtuple("observation", ['Gsub'])
 
 PATIENT_PARA_FILE = pkg_resources.resource_filename(
@@ -25,7 +26,10 @@ class T2DPatient(Patient):
                  init_state=None,
                  random_init_bg=False,
                  seed=None,
-                 t0=0):
+                 t0=0,
+                 GBPC0=None, 
+                 IBPF0=None, 
+                 brates=None):
         '''
         T2DPatient constructor.
         Inputs:
@@ -36,11 +40,37 @@ class T2DPatient(Patient):
             - t0: simulation start time, it is 0 by default
         '''
         self._params = params
+        self._param = GlucoseParameters()
+        self.GBPC0 = 7/0.0555 if GBPC0 is None else GBPC0
+        self.IBPF0 = 1 if IBPF0 is None else IBPF0
+        self.brates = {'rBGU': 70, 'rRBCU': 10, 'rGGU': 20, 'rPGU': 35, 'rHGU': 20} if brates is None else brates
         self._init_state = init_state
         self.random_init_bg = random_init_bg
         self._seed = seed
         self.t0 = t0
+        self.X0v, self.rates, self.SB = GlucoseInitializer(self._param, self).calculate_values()
         self.reset()
+
+    @property
+    def basal(self):
+        basal0 = {
+            'GPF': self.X0v[39],
+            'IPF': self.IBPF0,
+            'IL': self.X0v[28],
+            'GL': self.X0v[36],
+            'Gamma': self.X0v[40],
+            'SB': self.SB,
+            'GH': self.X0v[34],
+            'IH': self.X0v[26],
+            'rPIR': self.rates[0],
+            'rBGU': self.rates[1],
+            'rRBCU': self.rates[2],
+            'rGGU': self.rates[3],
+            'rPGU': self.rates[4],
+            'rHGP': self.rates[5],
+            'rHGU': self.rates[6]
+        }
+        return basal0
 
     @classmethod
     def withID(cls, patient_id, **kwargs):
@@ -105,8 +135,7 @@ class T2DPatient(Patient):
         self._last_action = action
 
         # ODE solver
-        self._odesolver.set_f_params(action, self._params, self._last_Qsto,
-                                     self._last_foodtaken)
+        self._odesolver.set_f_params(action, self.basal)
         if self._odesolver.successful():
             self._odesolver.integrate(self._odesolver.t + self.sample_time)
         else:
@@ -114,8 +143,26 @@ class T2DPatient(Patient):
             raise
 
     @staticmethod
-    def model(t, x, action, params, last_Qsto, last_foodtaken):
-        glucose_dynamics = GlucoseDynamics(t,x)
+    def model(t, x, action, basal):
+        Dg = action.CHO * 1e3
+        if t == 0.0 and Dg == 0:
+            Dg = 1.0
+        long_insulin = action.insulin_long * 1e2
+        fast_insulin = action.insulin_fast * 1e2
+        metformin = action.metformin * 1e3
+        vildagliptin = action.vildagliptin * (1 / (303.406) * 10 ** 6)
+        physical = action.physical
+        stress = action.stress
+        if (Dg != 0):
+            DM = x[46] + Dg - x[47]
+        else:
+            DM = 0
+        indices = [0, 46, 47, 3, 4, 9, 17, 19]
+        values = [Dg, Dg, DM, metformin, metformin, vildagliptin, fast_insulin / 6.76, long_insulin / 6.76]
+
+        for index, value in zip(indices, values):
+            x[index] += value
+        glucose_dynamics = GlucoseDynamics(t,x,Dg,stress,physical,basal)
         dxdt = glucose_dynamics.compute()
         return dxdt
 
@@ -185,10 +232,11 @@ class T2DPatient(Patient):
         self._last_foodtaken = 0
         self.name = self._params.Name
 
+        ## should be fine but order is 4 (5) while other tested is order 5(4)
         self._odesolver = ode(self.model).set_integrator('dopri5')
-        self._odesolver.set_initial_value(self.init_state, self.t0)
+        self._odesolver.set_initial_value(self.X0v, self.t0)
 
-        self._last_action = Action(CHO=0, insulin=0)
+        self._last_action = Action(CHO=0, insulin_fast=0, insulin_long=0, metformin=0, vildagliptin=0, stress=0, physical=0)
         self.is_eating = False
         self.planned_meal = 0
 
