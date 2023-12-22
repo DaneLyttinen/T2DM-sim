@@ -1,5 +1,5 @@
 from T2DMSimulator.glucose.GlucoseParameters import GlucoseParameters
-from T2DMSimulator.patient.t2dpatient import T2DPatient
+# from T2DMSimulator.patient.t2dpatient import T2DPatient
 import numpy as np
     # Glucose Dynamics Parameters:
     # | Parameter            | Index Range |
@@ -12,7 +12,7 @@ import numpy as np
     # | Long acting insulin  | 21 - 23     |
 
 class GlucoseInitializer():
-    def __init__(self, glucose_parameters: GlucoseParameters, patient: T2DPatient):
+    def __init__(self, glucose_parameters: GlucoseParameters, patient):
         self.glucose_parameters = glucose_parameters
         self.brates = patient.brates
         self.patient = patient

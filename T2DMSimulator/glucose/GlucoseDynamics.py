@@ -2,14 +2,13 @@ import numpy as np
 from T2DMSimulator.glucose.GlucoseParameters import GlucoseParameters
 
 class GlucoseDynamics:
-    def __init__(self, t, x, Dg, stressv, HRv, T, basal):
+    def __init__(self, t, x, Dg, stressv, HRv, basal):
         self.t = t
         self.x = x
         self.Dg = Dg
-        self.stressv = stressv
+        self.stress = stressv
         self.HRv = HRv
-        self.T = T
-        self.stress = np.interp(self.t, self.T, self.stressv)
+        #self.stress = np.interp(self.t, self.T, self.stressv)
         self.glucose_parameters = GlucoseParameters()
         self.basal = basal
         self.dx = np.zeros_like(x)
@@ -19,9 +18,9 @@ class GlucoseDynamics:
         EGW,EL,EP = self.__metformin_submodel()
         self.__vildagliptin_submodel()
         self.__physical_activity_submodel()
-        rKGE, MIHGPinft, MIHGUinft, rHGU,rHGP, rPGU = self.__glucose_submodel_rates(EGW, EL, EP)
+        rKGE, MIHGPinft, MIHGUinft, rHGU,rHGP, rPGU,rGGU = self.__glucose_submodel_rates(EGW, EL, EP)
         self.__rates_dynamic_model(MIHGPinft, MIHGUinft)
-        self.__glucose_submodel(Ra, rKGE, rHGU,rHGP, rPGU)
+        self.__glucose_submodel(Ra, rKGE, rHGU,rHGP, rPGU,rGGU)
         self.__glucagon_submodel()
         self.__glp1_submodel(kempt)
         S = self.__pancreas_submodel()
@@ -124,11 +123,11 @@ class GlucoseDynamics:
         dGamma = (1 / glucagon.VGamma) * ((1 + self.stress) * rPGammaR - 9.1 * self.x[40])
         self.dx[40] = dGamma
     
-    def __glucose_submodel(self, Ra, rKGE,rHGU, rHGP, rPGU):
+    def __glucose_submodel(self, Ra, rKGE,rHGU, rHGP, rPGU, rGGU):
         glucose = self.glucose_parameters.glucoseSubmodel
         physical = self.glucose_parameters.physicalActivityParameters
         GBC, GBF, GH, GG, GL, GK, GPC, GPF = self.x[32], self.x[33], self.x[34], self.x[35], self.x[36], self.x[37], self.x[38], self.x[39]
-        rBGU, rGGU,rRBCU = self.basal['rBGU'],self.basal['rGGU'],self.basal['rRBCU']
+        rBGU,rRBCU = self.basal['rBGU'],self.basal['rRBCU']
         E1,E2 = self.x[15],self.x[16]
         dGBC = (1 / glucose.VGBC) * (glucose.QGB * (GH - GBC) - (glucose.VGBF / glucose.TGB) * (GBC - GBF))
         dGBF = (1 / glucose.VGBF) * ((glucose.VGBF / glucose.TGB) * (GBC - GBF) - rBGU)
@@ -172,7 +171,7 @@ class GlucoseDynamics:
         self.dx[2] = dqint
         self.dx[46] = dDe
         self.dx[47] = dDNq
-        return absorption.fg * absorption.kabs * qint / 70 #Ra
+        return absorption.fg * absorption.kabs * qint / 70, kempt #Ra
     
     def __glucose_submodel_rates(self, EGW,EL,EP):
         rates = self.glucose_parameters.glucoseMetabolicRates
@@ -194,9 +193,9 @@ class GlucoseDynamics:
             rKGE = 71 + 71 * np.tanh(0.011 * (GK - 460))
         # Effect of Metformin:
         rHGP = rHGP * (1 - EL)
-        rGGU = rGGU * (1 + EGW)
+        rGGU = self.basal['rGGU'] * (1 + EGW)
         rPGU = rPGU * (1 + EP)
-        return rKGE, MIHGPinft, MIHGUinft, rHGU,rHGP, rPGU
+        return rKGE, MIHGPinft, MIHGUinft, rHGU,rHGP,rPGU,rGGU
 
     def __rates_dynamic_model(self, MIHGPinft, MIHGUinft):
         dMIHGP = 0.04 * (MIHGPinft - self.x[43])
@@ -245,7 +244,7 @@ class GlucoseDynamics:
     def __physical_activity_submodel(self):
         physical = self.glucose_parameters.physicalActivityParameters
         E1,E2,TE = self.x[15],self.x[16],self.x[48]
-        HR = np.interp(self.t, self.T, self.HRv)
+        HR = self.HRv
         dE1 = (1 / physical.tHR) * (HR - physical.HRb - E1)
         gE = (E1 / (physical.ae * physical.HRb)) ** physical.ne / (1 + (E1 / (physical.ae * physical.HRb)) ** physical.ne)
         dTE = (1 / physical.te) * (physical.ce1 * gE + physical.ce2 - TE)
