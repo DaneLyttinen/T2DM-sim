@@ -14,9 +14,6 @@ import numpy as np
 # | Pancreas Pinft                  | 23          |
 # | Pancreas XG                     | 24          |
 # | Basal Insulin Parameters        | 25 - 31     |
-# | Glucagon                        | 40          |
-# | GLP-1                           | 41 - 42     |
-# | Basal rates                     | 43 - 45     |
 # | Glucose Basal Concentration     | 32          |
 # | Glucose Basal Filtrate          | 33          |
 # | Plasma Glucose                  | 34          |
@@ -25,6 +22,14 @@ import numpy as np
 # | Glucose Kidney                  | 37          |
 # | Glucose Plasma Concentration    | 38          |
 # | Glucose Plasma Filtrate         | 39          |
+# | Glucagon                        | 40          |
+# | GLP-1                           | 41 - 42     |
+# | Basal rates                     | 43 - 45     |
+# | Total glucose consumption       | 49          |
+# | Total glucose production & appearance | 50    |
+# | Total insulin consumption       | 51          |
+# | Secreted insulin                | 52          |
+# | Injected insulin                | 53          |
 
 class GlucoseInitializer():
     def __init__(self, glucose_parameters: GlucoseParameters, patient):
