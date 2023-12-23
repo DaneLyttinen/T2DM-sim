@@ -145,15 +145,17 @@ class T2DPatient(Patient):
     @staticmethod
     def model(t, x, action, basal):
         Dg = action.CHO * 1e3
-        if t == 0.0 and Dg == 0:
-            Dg = 1.0
+        if Dg != 0:
+            print(Dg)
         long_insulin = action.insulin_long * 1e2
         fast_insulin = action.insulin_fast * 1e2
         metformin = action.metformin * 1e3
         vildagliptin = action.vildagliptin * (1 / (303.406) * 10 ** 6)
         physical = action.physical
         stress = action.stress
-        if (Dg != 0):
+        if t == 0.0 and Dg == 0:
+            DM = 1.0
+        elif (Dg != 0):
             DM = x[46] + Dg - x[47]
         else:
             DM = 0
@@ -173,9 +175,9 @@ class T2DPatient(Patient):
         for now, only the subcutaneous glucose level is returned
         TODO: add heart rate as an observation
         '''
-        GM = self.state[12]  # subcutaneous glucose (mg/kg)
-        Gsub = GM / self._params.Vg
-        observation = Observation(Gsub=Gsub)
+        GM = self.state[34]  # subcutaneous glucose (mg/kg) #Might be different, matlab code uses Plasma Glucose
+       # Gsub = GM / self._params.Vg
+        observation = Observation(Gsub=GM)
         return observation
 
     def _announce_meal(self, meal):

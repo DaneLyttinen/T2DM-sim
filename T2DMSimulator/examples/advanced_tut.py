@@ -35,9 +35,9 @@ def main():
     controller = BBController()
 
     # Put them together to create a simulation object
-    s1 = SimObj(env, controller, timedelta(days=1), animate=True, path=path)
-    #results1 = sim(s1)
-    #print(results1)
+    # s1 = SimObj(env, controller, timedelta(days=1), animate=True, path=path)
+    # results1 = sim(s1)
+    # print(results1)
 
     # --------- Create Custom Scenario --------------
     # Create a simulation environment
@@ -54,8 +54,8 @@ def main():
 
     # Put them together to create a simulation object
     s2 = SimObj(env, controller, timedelta(days=1), animate=True, path=path)
-    #results2 = sim(s2)
-    #print(results2)
+    results2 = sim(s2)
+    print(results2)
 
 
     # --------- batch simulation --------------
@@ -64,9 +64,9 @@ def main():
     s2.reset()
 
     # create a list of SimObj, and call batch_sim
-    s = [s1, s2]
-    results = batch_sim(s, parallel=True)
-    print(results)
+    # s = [s1, s2]
+    # results = batch_sim(s, parallel=True)
+    # print(results)
 
 if __name__ == '__main__':
     main()

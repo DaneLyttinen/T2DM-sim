@@ -1,15 +1,30 @@
 from T2DMSimulator.glucose.GlucoseParameters import GlucoseParameters
 # from T2DMSimulator.patient.t2dpatient import T2DPatient
 import numpy as np
-    # Glucose Dynamics Parameters:
-    # | Parameter            | Index Range |
-    # |----------------------|-------------|
-    # | Glucose absorption   | 0 - 4       |
-    # | Metformin            | 5 - 10      |
-    # | Vildagliptin         | 11 - 16     |
-    # | Physical activity    | 17 - 18     |
-    # | Fast acting insulin  | 19 - 20     |
-    # | Long acting insulin  | 21 - 23     |
+# Glucose Dynamics Parameters:
+# | Parameter                       | Index Range |
+# |---------------------------------|-------------|
+# | Glucose absorption              | 0 - 4       |
+# | Metformin                       | 5 - 10      |
+# | Vildagliptin                    | 11 - 16     |
+# | Physical activity               | 17 - 18     |
+# | Fast acting insulin             | 19 - 20     |
+# | Long acting insulin             | 21 - 23     |
+# | Pancreas mpan                   | 22          |
+# | Pancreas Pinft                  | 23          |
+# | Pancreas XG                     | 24          |
+# | Basal Insulin Parameters        | 25 - 31     |
+# | Glucagon                        | 40          |
+# | GLP-1                           | 41 - 42     |
+# | Basal rates                     | 43 - 45     |
+# | Glucose Basal Concentration     | 32          |
+# | Glucose Basal Filtrate          | 33          |
+# | Plasma Glucose                  | 34          |
+# | Glucose Glycogen                | 35          |
+# | Glucose Liver                   | 36          |
+# | Glucose Kidney                  | 37          |
+# | Glucose Plasma Concentration    | 38          |
+# | Glucose Plasma Filtrate         | 39          |
 
 class GlucoseInitializer():
     def __init__(self, glucose_parameters: GlucoseParameters, patient):
