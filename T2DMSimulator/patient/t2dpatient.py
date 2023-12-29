@@ -29,7 +29,8 @@ class T2DPatient(Patient):
                  t0=0,
                  GBPC0=None, 
                  IBPF0=None, 
-                 brates=None):
+                 brates=None,
+                 glucose_params=None):
         '''
         T2DPatient constructor.
         Inputs:
@@ -40,7 +41,8 @@ class T2DPatient(Patient):
             - t0: simulation start time, it is 0 by default
         '''
         self._params = params
-        self._param = GlucoseParameters()
+        self.name = "testing"
+        self.__param = GlucoseParameters() if glucose_params == None else glucose_params
         self.GBPC0 = 7/0.0555 if GBPC0 is None else GBPC0
         self.IBPF0 = 1 if IBPF0 is None else IBPF0
         self.brates = {'rBGU': 70, 'rRBCU': 10, 'rGGU': 20, 'rPGU': 35, 'rHGU': 20} if brates is None else brates
@@ -48,7 +50,7 @@ class T2DPatient(Patient):
         self.random_init_bg = random_init_bg
         self._seed = seed
         self.t0 = t0
-        self.X0v, self.rates, self.SB = GlucoseInitializer(self._param, self).calculate_values()
+        self.X0v, self.rates, self.SB = GlucoseInitializer(self.__param, self).calculate_values()
         self.reset()
 
     @property
@@ -135,7 +137,7 @@ class T2DPatient(Patient):
         self._last_action = action
 
         # ODE solver
-        self._odesolver.set_f_params(action, self.basal)
+        self._odesolver.set_f_params(action, self.basal, self.__param)
         if self._odesolver.successful():
             self._odesolver.integrate(self._odesolver.t + self.sample_time)
         else:
@@ -143,12 +145,15 @@ class T2DPatient(Patient):
             raise
 
     @staticmethod
-    def model(t, x, action, basal):
+    def model(t, x, action, basal, glucose_parameters):
         Dg = action.CHO * 1e3
         if Dg != 0:
             print(Dg)
         long_insulin = action.insulin_long * 1e2
         fast_insulin = action.insulin_fast * 1e2
+        if long_insulin != 0 or fast_insulin != 0:
+            print(long_insulin)
+            print(fast_insulin)
         metformin = action.metformin * 1e3
         vildagliptin = action.vildagliptin * (1 / (303.406) * 10 ** 6)
         physical = action.physical
@@ -164,7 +169,7 @@ class T2DPatient(Patient):
 
         for index, value in zip(indices, values):
             x[index] += value
-        glucose_dynamics = GlucoseDynamics(t,x,Dg,stress,physical,basal)
+        glucose_dynamics = GlucoseDynamics(t,x,Dg,stress,physical,basal,glucose_parameters)
         dxdt = glucose_dynamics.compute()
         return dxdt
 
@@ -172,7 +177,7 @@ class T2DPatient(Patient):
     def observation(self):
         '''
         return the observation from patient
-        for now, only the subcutaneous glucose level is returned
+        for now, only the plasma glucose level is returned
         TODO: add heart rate as an observation
         '''
         GM = self.state[34]  # subcutaneous glucose (mg/kg) #Might be different, matlab code uses Plasma Glucose
@@ -209,10 +214,10 @@ class T2DPatient(Patient):
         '''
         Reset the patient state to default intial state
         '''
-        if self._init_state is None:
-            self.init_state = self._params.iloc[2:15]
-        else:
-            self.init_state = self._init_state
+        # if self._init_state is None:
+        #     self.init_state = self._params.iloc[2:15]
+        # else:
+        #     self.init_state = self._init_state
 
         self.random_state = np.random.RandomState(self.seed)
         if self.random_init_bg:
@@ -230,9 +235,9 @@ class T2DPatient(Patient):
             self.init_state[4] = 1.0 * bg_init[1]
             self.init_state[12] = 1.0 * bg_init[2]
 
-        self._last_Qsto = self.init_state[0] + self.init_state[1]
+        #self._last_Qsto = self.init_state[0] + self.init_state[1]
         self._last_foodtaken = 0
-        self.name = self._params.Name
+       # self.name = self._params.Name
 
         ## should be fine but order is 4 (5) while other tested is order 5(4)
         self._odesolver = ode(self.model).set_integrator('dopri5')

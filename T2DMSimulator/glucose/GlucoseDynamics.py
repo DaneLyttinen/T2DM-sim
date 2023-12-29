@@ -2,14 +2,14 @@ import numpy as np
 from T2DMSimulator.glucose.GlucoseParameters import GlucoseParameters
 
 class GlucoseDynamics:
-    def __init__(self, t, x, Dg, stressv, HRv, basal):
+    def __init__(self, t, x, Dg, stressv, HRv, basal, glucose_parameters: GlucoseParameters):
         self.t = t
         self.x = x
         self.Dg = Dg
         self.stress = stressv
         self.HRv = HRv
         #self.stress = np.interp(self.t, self.T, self.stressv)
-        self.glucose_parameters = GlucoseParameters()
+        self.glucose_parameters = glucose_parameters
         self.basal = basal
         self.dx = np.zeros_like(x)
 

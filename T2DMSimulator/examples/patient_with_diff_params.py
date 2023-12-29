@@ -3,7 +3,7 @@ import sys
 # Assuming your script is in the 'examples' directory
 sys.path.append('C:\\Users\\Dane\\Desktop\\Masters\\T2DM-sim\\T2DMSimulator')
 
-
+from T2DMSimulator.glucose.GlucoseParameters import GlucoseParameters
 from T2DMSimulator.simulation.env import T2DSimEnv
 from T2DMSimulator.controller.basal_bolus_ctrller import BBController
 from T2DMSimulator.sensor.cgm import CGMSensor
@@ -41,7 +41,16 @@ def main():
 
     # --------- Create Custom Scenario --------------
     # Create a simulation environment
-    patient = T2DPatient.withName('adolescent#001')
+    
+    
+    #Lower the parameters for the effect of insulin on the hepatic glucose
+    #uptake and production rates (See paper): 
+    glucoseParams = GlucoseParameters()
+    glucoseParams.glucoseMetabolicRates.c4 = glucoseParams.glucoseMetabolicRates.c4 - 50*glucoseParams.glucoseMetabolicRates.c4
+    glucoseParams.glucoseMetabolicRates.c2 = glucoseParams.glucoseMetabolicRates.c2 - 50*glucoseParams.glucoseMetabolicRates.c2
+    #The same for the peripheral uptake rate:
+    glucoseParams.glucoseMetabolicRates.c1 = glucoseParams.glucoseMetabolicRates.c1 - 50*glucoseParams.glucoseMetabolicRates.c1
+    patient = T2DPatient({},glucose_params=glucoseParams)
     sensor = CGMSensor.withName('Dexcom', seed=1)
     pump = InsulinPump.withName('Insulet')
     # custom scenario is a list of tuples (time, meal_size)
