@@ -47,14 +47,15 @@ def main():
     #uptake and production rates (See paper): 
     glucoseParams = GlucoseParameters()
     glucoseParams.glucoseMetabolicRates.c4 = glucoseParams.glucoseMetabolicRates.c4 - 50*glucoseParams.glucoseMetabolicRates.c4
-    glucoseParams.glucoseMetabolicRates.c2 = glucoseParams.glucoseMetabolicRates.c2 - 50*glucoseParams.glucoseMetabolicRates.c2
+    glucoseParams.glucoseMetabolicRates.c2 = glucoseParams.glucoseMetabolicRates.c2 - 20*glucoseParams.glucoseMetabolicRates.c2
     #The same for the peripheral uptake rate:
     glucoseParams.glucoseMetabolicRates.c1 = glucoseParams.glucoseMetabolicRates.c1 - 50*glucoseParams.glucoseMetabolicRates.c1
+    #glucoseParams.InsulinSubmodel.mpan0 += 50 * glucoseParams.InsulinSubmodel.mpan0
     patient = T2DPatient({},glucose_params=glucoseParams)
     sensor = CGMSensor.withName('Dexcom', seed=1)
     pump = InsulinPump.withName('Insulet')
     # custom scenario is a list of tuples (time, meal_size)
-    scen = [(7, 45), (12, 70), (16, 15), (18, 80), (23, 10)]
+    scen = [(7, 45, "meal"), (12, 70, "meal"), (16, 15, "meal"),(17,500,"insulin_long") ,(18, 80, "meal"), (21,15,"meal")]
     scenario = CustomScenario(start_time=start_time, scenario=scen)
     env = T2DSimEnv(patient, sensor, pump, scenario)
 
@@ -62,8 +63,9 @@ def main():
     controller = BBController()
 
     # Put them together to create a simulation object
-    s2 = SimObj(env, controller, timedelta(days=1), animate=True, path=path)
+    s2 = SimObj(env, controller, timedelta(days=1), animate=False, path=path)
     results2 = sim(s2)
+    s2.save_results()
     print(results2)
 
 

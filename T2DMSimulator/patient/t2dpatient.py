@@ -8,6 +8,7 @@ import pkg_resources
 from T2DMSimulator.glucose.GlucoseDynamics import GlucoseDynamics
 from T2DMSimulator.glucose.GlucoseParameters import GlucoseParameters
 from T2DMSimulator.glucose.glucose_initializer import GlucoseInitializer
+from scipy.integrate import solve_ivp
 logger = logging.getLogger(__name__)
 
 Action = namedtuple("patient_action", ['CHO', 'insulin_fast', 'insulin_long', 'metformin', 'vildagliptin', 'stress', 'physical'])
@@ -99,11 +100,11 @@ class T2DPatient(Patient):
 
     @property
     def state(self):
-        return self._odesolver.y
+        return self._odesolver.y[:, -1]
 
     @property
     def t(self):
-        return self._odesolver.t
+        return self._odesolver.t[-1]
 
     @property
     def sample_time(self):
@@ -133,28 +134,41 @@ class T2DPatient(Patient):
             logger.info('t = {}, Patient finishes eating!'.format(self.t))
             self.is_eating = False
 
+        if self._last_action.metformin != 0:
+            print("doing anything?")
+            action = action._replace(metformin=0)
+
         # Update last input
         self._last_action = action
 
         # ODE solver
-        self._odesolver.set_f_params(action, self.basal, self.__param)
-        if self._odesolver.successful():
-            self._odesolver.integrate(self._odesolver.t + self.sample_time)
+        #self._odesolver.set_f_params(action, self.basal, self.__param, self)
+        if not hasattr(self, "_odesolver"):
+            self._odesolver = solve_ivp(fun=self.model, t_span=(self._odesolver.t ,self.t0+self.sample_time), y0=self._odesolver.y, method='RK45', args=(action, self.basal, self.__param, self))
+        elif self._odesolver.success:
+            print((self.t ,self.t+self.sample_time))
+            self._odesolver = solve_ivp(fun=self.model, t_span=(self.t ,self.t+self.sample_time), y0=self.state, method='RK45', args=(action, self.basal, self.__param, self))
+
+            #self._odesolver.integrate(self._odesolver.t + self.sample_time)
         else:
             logger.error('ODE solver failed!!')
             raise
 
     @staticmethod
-    def model(t, x, action, basal, glucose_parameters):
+    def model(t, x, action, basal,glucose_parameters, self):
+        action = self._last_action
         Dg = action.CHO * 1e3
-        if Dg != 0:
-            print(Dg)
         long_insulin = action.insulin_long * 1e2
         fast_insulin = action.insulin_fast * 1e2
+        # Doesn't seem to have an effect?
         if long_insulin != 0 or fast_insulin != 0:
-            print(long_insulin)
-            print(fast_insulin)
+            action = action._replace(insulin_long = 0)
+            action = action._replace(insulin_fast = 0)
+
         metformin = action.metformin * 1e3
+        if metformin != 0:
+            action = action._replace(metformin = 0)
+
         vildagliptin = action.vildagliptin * (1 / (303.406) * 10 ** 6)
         physical = action.physical
         stress = action.stress
@@ -170,7 +184,14 @@ class T2DPatient(Patient):
         for index, value in zip(indices, values):
             x[index] += value
         glucose_dynamics = GlucoseDynamics(t,x,Dg,stress,physical,basal,glucose_parameters)
+        
+    # # Solve the ODE using solve_ivp
+    # sol = solve_ivp(fun=ode_func, t_span=interval, y0=initialVec, method=integration)
+    
+    # ts = sol.t  # Time points
+    # Xs = sol.y  # Solution
         dxdt = glucose_dynamics.compute()
+        self._last_action = action
         return dxdt
 
     @property
@@ -240,10 +261,13 @@ class T2DPatient(Patient):
        # self.name = self._params.Name
 
         ## should be fine but order is 4 (5) while other tested is order 5(4)
-        self._odesolver = ode(self.model).set_integrator('dopri5')
-        self._odesolver.set_initial_value(self.X0v, self.t0)
+        # self._odesolver = ode(self.model).set_integrator('dopri5', nsteps=500, max_step=0.1, rtol=0.001, atol=1e-06,first_step=0.01)
+        # self._odesolver.set_initial_value(self.X0v, self.t0)
+
 
         self._last_action = Action(CHO=0, insulin_fast=0, insulin_long=0, metformin=0, vildagliptin=0, stress=0, physical=0)
+        self._odesolver = solve_ivp(fun=self.model, t_span=(self.t0 ,self.t0+self.sample_time), y0=self.X0v, method='RK45', args=(Action(CHO=0, insulin_fast=0, insulin_long=0, metformin=0, vildagliptin=0, stress=0, physical=0), self.basal, self.__param, self))
+
         self.is_eating = False
         self.planned_meal = 0
 

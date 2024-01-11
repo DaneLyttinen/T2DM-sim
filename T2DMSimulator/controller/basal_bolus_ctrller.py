@@ -77,7 +77,7 @@ class BBController(Controller):
         # differently. The unit of Action.basal and Action.bolus are the same
         # (U/min).
         bolus = bolus / env_sample_time  # unit: U/min
-        return Action(basal=basal, bolus=bolus)
+        return Action(basal=basal, bolus=bolus, meal=0, metformin=0, physical=0)
 
     def reset(self):
         pass

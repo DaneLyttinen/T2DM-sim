@@ -4,7 +4,7 @@ from datetime import datetime
 from datetime import timedelta
 
 logger = logging.getLogger(__name__)
-Action = namedtuple('scenario_action', ['meal'])
+Action = namedtuple('scenario_action', ['meal', 'stress', 'metformin', 'insulin_long','insulin_fast', 'exercise'])
 
 
 class Scenario(object):
@@ -34,12 +34,26 @@ class CustomScenario(Scenario):
         if not self.scenario:
             return Action(meal=0)
         else:
-            times, actions = tuple(zip(*self.scenario))
+            times, actionValue, action = tuple(zip(*self.scenario))
             times2compare = [parseTime(time, self.start_time) for time in times]
             if t in times2compare:
                 idx = times2compare.index(t)
-                return Action(meal=actions[idx])
-            return Action(meal=0)
+                actionType = action[idx]
+                meal, metformin, stress, insulin_long,insulin_fast,exercise = 0,0,0,0,0,0
+                if actionType == "meal":
+                    meal = actionValue[idx]
+                if actionType == "metformin":
+                    metformin = actionValue[idx]
+                if actionType == "stress":
+                    stress = actionValue[idx]
+                if actionType == "insulin_long":
+                    insulin_long = actionValue[idx]
+                if actionType == "insulin_fast":
+                    insulin_fast = actionValue[idx]
+                if actionType == "exercise":
+                    exercise = actionValue[idx]
+                return Action(meal=meal, stress=stress, metformin=metformin, insulin_long=insulin_long, insulin_fast=insulin_fast, exercise=exercise)
+            return Action(meal=0,stress=0, metformin=0, insulin_long=0, insulin_fast=0, exercise=0)
 
     def reset(self):
         pass

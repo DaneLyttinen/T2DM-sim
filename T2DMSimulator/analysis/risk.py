@@ -4,6 +4,7 @@ def risk_index(BG, horizon):
     # BG is in mg/dL
     # horizon in samples
     BG_to_compute = BG[-horizon:]
+    print(BG_to_compute)
     risks =[risk(r) for r in BG_to_compute]
     LBGI = np.mean([r[0] for r in risks])
     HBGI = np.mean([r[1] for r in risks])

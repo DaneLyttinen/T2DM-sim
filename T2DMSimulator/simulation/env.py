@@ -52,7 +52,9 @@ class T2DSimEnv(object):
         bolus = self.pump.bolus(action.bolus)
         insulin = basal + bolus
         CHO = patient_action.meal
-        patient_mdl_act = Action(insulin_fast=0, CHO=CHO, insulin_long=0, metformin=0, vildagliptin=0,physical=80., stress=0)
+        metformin = patient_action.metformin
+        insulin_fast = patient_action.insulin_fast
+        patient_mdl_act = Action(insulin_fast=insulin_fast, CHO=CHO, insulin_long=patient_action.insulin_long, metformin=metformin, vildagliptin=0,physical=80., stress=patient_action.stress)
 
         # State update
         self.patient.step(patient_mdl_act)
