@@ -70,7 +70,8 @@ class GlucoseAbsorptionParameters():
 class GlucoseMetabolicRates():
     def __init__(self):
         self.c1 = 0.067  # cIPGU
-        self.c2 = 1.59  # cIHGPinft
+        # Changed below as 1.59 * 121
+        self.c2 = 192.39  # cIHGPinft
         self.c3 = 0.62  # cGHGP
         self.c4 = 1.72  # cIHGUinft
         self.c5 = 2.03  # cGHGU
@@ -133,7 +134,8 @@ class MetforminSubmodel():
         self.klp = 0.91
         self.kpo = 0.51
         self.vGWmax = 0.9720
-        self.vLmax = 0.7560
+        # modified, divided by 4
+        self.vLmax = 0.189
         self.vPmax = 0.2960
         self.nGW = 2
         self.nL = 5

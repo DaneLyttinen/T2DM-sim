@@ -53,7 +53,7 @@ class GlucoseDynamics:
         self.dx[31] = dIPF
         dXIC = rLIC + rKIC + rPIC
         dXIS = (1 - self.stress) * rPIR
-        dXIinj = VIPF * long_insulin.rla * long_insulin.bla * self.x[54] / (1 + IPF) + VIPF * fast_insulin.rfa * fast_insulin.bfa * self.x[55] / (1 + IPF)
+        dXIinj = VIPF * long_insulin.rla * long_insulin.bla * self.x[21] / (1 + IPF) + VIPF * fast_insulin.rfa * fast_insulin.bfa * self.x[18] / (1 + IPF)
         self.dx[51] = dXIC
         self.dx[52] = dXIS
         self.dx[53] = dXIinj
@@ -98,7 +98,8 @@ class GlucoseDynamics:
             S = pancreas.Sfactor * mpan * (pancreas.N1 * Y + pancreas.N2 * (XG - R) + pancreas.zeta2 * PHI)
         else:
             S = pancreas.Sfactor * mpan * (pancreas.N1 * Y + pancreas.zeta2 * PHI)
-        dmpan = (pancreas.ml0 * pancreas.Kl) - pancreas.Ks * mpan + pancreas.gammapan * P - S
+        kdmdpan = pancreas.ml0 * pancreas.Kl
+        dmpan =  kdmdpan - pancreas.Ks * mpan + pancreas.gammapan * P - S
         dP = pancreas.alphapan * (Pinft - P)
         dR = pancreas.betapan * (XG - R)
         self.dx[22] = dmpan

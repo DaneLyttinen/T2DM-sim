@@ -32,7 +32,7 @@ class CustomScenario(Scenario):
 
     def get_action(self, t):
         if not self.scenario:
-            return Action(meal=0)
+            return Action(meal=0,stress=0, metformin=0, insulin_long=0, insulin_fast=0, exercise=0)
         else:
             times, actionValue, action = tuple(zip(*self.scenario))
             times2compare = [parseTime(time, self.start_time) for time in times]
