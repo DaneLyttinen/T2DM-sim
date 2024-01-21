@@ -57,7 +57,7 @@ class T2DSimEnv(object):
         patient_mdl_act = Action(insulin_fast=insulin_fast, CHO=CHO, insulin_long=patient_action.insulin_long, metformin=metformin, vildagliptin=0,physical=80., stress=patient_action.stress)
 
         # State update
-        self.patient.step(patient_mdl_act)
+        self.patient.step(patient_mdl_act, action)
 
         # next observation
         BG = self.patient.observation.Gsub

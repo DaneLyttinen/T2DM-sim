@@ -59,7 +59,8 @@ class BaselineController(Controller):
     def predict_glucose(self, observation):
         self.all_gl_data.append(observation)
         self.fitted_model = self.fitted_model.append([observation], refit=False)
-        preds = self.fitted_model.forecast(steps=10)
+        # 30 min pred horizon
+        preds = self.fitted_model.forecast(steps=6)
         return preds
     
     def decide_action(self, predicted_glucose, observation, **info):
@@ -79,7 +80,7 @@ class BaselineController(Controller):
             metformin = 500
             self.administered_metformin += 1
 
-        return Action(basal=0, bolus=0, meal=meal_cho, metformin=metformin, physical=physical)
+        return Action(basal=0, bolus=0, meal=meal_cho, metformin=metformin, physical=physical, time=30)
     
     def determine_physical_activity(self, current_time):
         if not self.physical_activity_done and current_time >= 17:
