@@ -8,7 +8,7 @@ import pkg_resources
 from T2DMSimulator.glucose.GlucoseDynamics import GlucoseDynamics
 from T2DMSimulator.glucose.GlucoseParameters import GlucoseParameters
 from T2DMSimulator.glucose.glucose_initializer import GlucoseInitializer
-from queue import PriorityQueue
+from T2DMSimulator.utils.TimerQueue import TimerQueue
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ class T2DPatient(Patient):
         self._seed = seed
         self.t0 = t0
         self.prob = prob_of_actioning
-        self.reccomended_actions = PriorityQueue()
+        self.reccomended_actions = TimerQueue()
         self.X0v, self.rates, self.SB = GlucoseInitializer(self.__param, self).calculate_values()
         self.reset()
 
@@ -115,12 +115,22 @@ class T2DPatient(Patient):
     def sample_time(self):
         return self.SAMPLE_TIME
 
-    def step(self, action, reccomendation_action):
+    def step(self, action, reccomended_action):
+        curr_recc_action = self.reccomended_actions.get()
+        
+        if not all(getattr(reccomended_action, field) == 0 for field in reccomended_action._fields if field != 'time'):
+            self.reccomended_actions.put(reccomended_action, reccomended_action.time)
+
         # Convert announcing meal to the meal amount to eat at the moment
-
-
         to_eat = self._announce_meal(action.CHO)
         action = action._replace(CHO=to_eat)
+
+        if curr_recc_action != None:
+            if curr_recc_action.meal != 0:
+                to_eat = self._announce_meal(curr_recc_action.meal)
+                action = action._replace(CHO=to_eat)
+            if curr_recc_action.physical != 0:
+                action = action._replace(physical=curr_recc_action.physical)
 
         # Detect eating or not and update last digestion amount
         if action.CHO > 0 and self._last_action.CHO <= 0:

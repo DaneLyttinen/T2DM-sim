@@ -63,7 +63,7 @@ def main():
     controller = BaselineController()
 
     # Put them together to create a simulation object
-    s2 = SimObj(env, controller, timedelta(days=30), animate=True, path=path)
+    s2 = SimObj(env, controller, timedelta(days=30), animate=False, path=path)
     results2 = sim(s2)
     s2.save_results()
     print(results2)

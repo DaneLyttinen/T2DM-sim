@@ -3,7 +3,6 @@ import numpy as np
 from .base import Controller
 from .base import Action
 from statsmodels.tsa.statespace.sarimax import SARIMAX
-import copy
 import statsmodels.api as sm
 
 class BaselineController(Controller):
@@ -21,7 +20,7 @@ class BaselineController(Controller):
 
     def policy(self, observation, reward, done, **info):
         # Predict future glucose level
-        if len(self.all_gl_data) <= 80:
+        if len(self.all_gl_data) <= 83:
             self.all_gl_data.append(observation.CGM)
             predicted_glucose = [observation.CGM]
         else:
@@ -30,14 +29,14 @@ class BaselineController(Controller):
                 self.fitted_model = self.model.fit(disp=False)
             predicted_glucose = self.predict_glucose(observation.CGM)
 
-        if len(self.all_gl_data) % 1440 == 0:
+        if len(self.all_gl_data) % 288 == 0:
             self.meal_count = 0
             self.administered_metformin = 0
-            daily_avg = np.mean(self.all_gl_data[-1440:])
+            daily_avg = np.mean(self.all_gl_data[-288:])
             self.daily_averages.append(daily_avg)
             self.update_metformin_usage()
         # Apply rule-based logic to decide the action
-        action = self.decide_action(predicted_glucose, observation, **info)
+        action = self.decide_action(predicted_glucose)
         self.update_internal_state(action)
 
         return action
@@ -63,18 +62,26 @@ class BaselineController(Controller):
         preds = self.fitted_model.forecast(steps=6)
         return preds
     
-    def decide_action(self, predicted_glucose, observation, **info):
+    def decide_action(self, predicted_glucose):
         maximum_gl = max(predicted_glucose)
         hour_of_day = (len(self.all_gl_data) // 20) % 24 
+        meal_cho = 0
+
         if self.meal_count < 3:
-            meal_cho = self.calculate_meal_CHO(maximum_gl, hour_of_day)  # Calculate CHO based on predicted glucose
-            self.last_meal_index = len(self.all_gl_data)
-        else:
-            meal_cho = 0  # No more meals if already taken 3
+            if 6 <= hour_of_day < 10 and self.meal_count == 0:  # Breakfast
+                meal_cho = self.calculate_meal_CHO(maximum_gl, hour_of_day, "breakfast")
+            elif 12 <= hour_of_day < 14 and self.meal_count == 1:  # Lunch
+                meal_cho = self.calculate_meal_CHO(maximum_gl, hour_of_day, "lunch")
+            elif 18 <= hour_of_day < 20 and self.meal_count == 2:  # Dinner
+                meal_cho = self.calculate_meal_CHO(maximum_gl, hour_of_day, "dinner")
+
+        # Ensure the total CHO intake for the day does not exceed 130g
+        if self.total_daily_cho + meal_cho > 130:
+            meal_cho = max(0, 130 - self.total_daily_cho)
 
         physical = self.determine_physical_activity(hour_of_day)
-        if meal_cho != 0:
-            print("suggest to eat now")
+        # if meal_cho != 0:
+        #     print("suggest to eat now")
         metformin = 0
         if self.max_metformin > 0 and self.administered_metformin < self.max_metformin and hour_of_day < 14 and hour_of_day > 6:
             metformin = 500
@@ -83,20 +90,18 @@ class BaselineController(Controller):
         return Action(basal=0, bolus=0, meal=meal_cho, metformin=metformin, physical=physical, time=30)
     
     def determine_physical_activity(self, current_time):
-        if not self.physical_activity_done and current_time >= 17:
+        if not self.physical_activity_done and current_time >= 18:
             return 30
         return 0
 
-    def calculate_meal_CHO(self, predicted_glucose, current_time):
-        # Determine CHO content based on time of day and predicted glucose levels
-        if current_time < 10 and current_time > 6:  # Breakfast
+    def calculate_meal_CHO(self, predicted_glucose, current_time, meal_type):
+        # Meal-specific CHO calculation
+        if meal_type == "breakfast":
             return 45 if predicted_glucose > 100 else 60
-        elif current_time < 14 and current_time > 6:  # Lunch
+        elif meal_type == "lunch":
             return 60 if predicted_glucose > 100 else 75
-        elif current_time > 6:  # Dinner
+        elif meal_type == "dinner":
             return 30 if predicted_glucose > 100 else 45
-        else:
-            return 0
 
     def update_internal_state(self, action):
         # Update meal count and total CHO intake
