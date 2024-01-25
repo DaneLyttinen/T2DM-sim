@@ -4,9 +4,10 @@ from .base import Controller
 from .base import Action
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 import statsmodels.api as sm
+import random
 
 class BaselineController(Controller):
-    def __init__(self):
+    def __init__(self, seed=3):
         self.meal_count = 0
         self.physical_activity_done = False
         self.total_daily_cho = 0  
@@ -17,6 +18,8 @@ class BaselineController(Controller):
         self.max_metformin = 0
         self.administered_metformin = 0
         self.fitted_model = None
+        self._seed = seed
+        self.max_heart_rate =  220 - random.randint(20,60)
 
     def policy(self, observation, reward, done, **info):
         # Predict future glucose level
@@ -72,14 +75,18 @@ class BaselineController(Controller):
                 meal_cho = self.calculate_meal_CHO(maximum_gl, hour_of_day, "breakfast")
             elif 12 <= hour_of_day < 14 and self.meal_count == 1:  # Lunch
                 meal_cho = self.calculate_meal_CHO(maximum_gl, hour_of_day, "lunch")
-            elif 18 <= hour_of_day < 20 and self.meal_count == 2:  # Dinner
+            elif 17 <= hour_of_day < 20 and self.meal_count == 2:  # Dinner
                 meal_cho = self.calculate_meal_CHO(maximum_gl, hour_of_day, "dinner")
 
         # Ensure the total CHO intake for the day does not exceed 130g
         if self.total_daily_cho + meal_cho > 130:
             meal_cho = max(0, 130 - self.total_daily_cho)
-
+        times = []
         physical = self.determine_physical_activity(hour_of_day)
+        
+        if physical != 0:
+            print("reccomending physical activity")
+            times = [(18, 0),(18, 10), (18, 30), (18,40)]
         # if meal_cho != 0:
         #     print("suggest to eat now")
         metformin = 0
@@ -87,12 +94,19 @@ class BaselineController(Controller):
             metformin = 500
             self.administered_metformin += 1
 
-        return Action(basal=0, bolus=0, meal=meal_cho, metformin=metformin, physical=physical, time=30)
+        return Action(basal=0, bolus=0, meal=meal_cho, metformin=metformin, physical=physical, time=30, times=times)
     
     def determine_physical_activity(self, current_time):
+        heart_rate_increase = 0
         if not self.physical_activity_done and current_time >= 18:
-            return 30
-        return 0
+            random.seed(self._seed)
+            average_heart_rate = 65
+            std_deviation = 15
+            curr_heart_rate = np.random.normal(average_heart_rate, std_deviation, 1)[0]
+            # Referencing values from https://www.semanticscholar.org/paper/Exercise-prescription-for-patients-with-type-2-of-Mendes-Sousa/091e3383140b3f08c150e53b5fad4c8d78f469bf
+            heart_rate_increase = random.randint(round((64 / 100) * self.max_heart_rate), round((76 / 100) * self.max_heart_rate))
+            heart_rate_increase = abs(curr_heart_rate - heart_rate_increase)
+        return heart_rate_increase
 
     def calculate_meal_CHO(self, predicted_glucose, current_time, meal_type):
         # Meal-specific CHO calculation

@@ -8,7 +8,6 @@ class GlucoseDynamics:
         self.Dg = Dg
         self.stress = stressv
         self.HRv = HRv
-        #self.stress = np.interp(self.t, self.T, self.stressv)
         self.glucose_parameters = glucose_parameters
         self.basal = basal
         self.dx = np.zeros_like(x)

@@ -9,6 +9,9 @@ from T2DMSimulator.glucose.GlucoseDynamics import GlucoseDynamics
 from T2DMSimulator.glucose.GlucoseParameters import GlucoseParameters
 from T2DMSimulator.glucose.glucose_initializer import GlucoseInitializer
 from T2DMSimulator.utils.TimerQueue import TimerQueue
+from T2DMSimulator.utils.TrapezoidFunc import TrapezoidFunc
+import random
+import queue
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +37,8 @@ class T2DPatient(Patient):
                  brates=None,
                  glucose_params=None,
                  name="testing",
-                 prob_of_actioning=100):
+                 prob_of_actioning=1,
+                 constraints=[]):
         '''
         T2DPatient constructor.
         Inputs:
@@ -56,6 +60,9 @@ class T2DPatient(Patient):
         self.t0 = t0
         self.prob = prob_of_actioning
         self.reccomended_actions = TimerQueue()
+        self.physical_activity_queue = []
+        self.heart_rates_running = [55,56,55]
+        self.constraints = constraints
         self.X0v, self.rates, self.SB = GlucoseInitializer(self.__param, self).calculate_values()
         self.reset()
 
@@ -114,23 +121,67 @@ class T2DPatient(Patient):
     @property
     def sample_time(self):
         return self.SAMPLE_TIME
+    
+    def add_reccomended_action(self, reccomended_action):
+        if not all(getattr(reccomended_action, field) == 0 for field in reccomended_action._fields if field != 'time'):
+            random.seed(self.seed)
+            # random chance for action to be carried out later or earlier by 10-20 minutes
+            if random.random() < 0.4:
+                noise = random.randint(10,20)
+                # may be added or negated to the original time
+                newTime = reccomended_action.time + noise if random.random() > 0.5 else reccomended_action.time - noise
+                self.reccomended_actions.put(reccomended_action, newTime)
+            else:
+                self.reccomended_actions.put(reccomended_action, reccomended_action.time)
+
+    def simulate_running_heart_rate(self):
+        std_deviation = 5
+        coefficients = [0.5, 0.3, 0.2]
+        lower_bound = 50
+        upper_bound = 85
+        
+        next_value = sum(coeff * self.heart_rates_running[-lag] for lag, coeff in enumerate(coefficients, start=1)) \
+                    + np.random.normal(0, std_deviation)
+        
+        # Ensure the next value stays within the specified bounds
+        next_value = min(max(next_value, lower_bound), upper_bound)
+        self.heart_rates_running.append(next_value)
+        self.heart_rates_running.pop()
+        return next_value
 
     def step(self, action, reccomended_action):
         curr_recc_action = self.reccomended_actions.get()
         
-        if not all(getattr(reccomended_action, field) == 0 for field in reccomended_action._fields if field != 'time'):
-            self.reccomended_actions.put(reccomended_action, reccomended_action.time)
-
+        self.add_reccomended_action(reccomended_action)
         # Convert announcing meal to the meal amount to eat at the moment
         to_eat = self._announce_meal(action.CHO)
         action = action._replace(CHO=to_eat)
 
+        heart_rate = self.simulate_running_heart_rate()
+        action = action._replace(physical=heart_rate)
+
         if curr_recc_action != None:
-            if curr_recc_action.meal != 0:
-                to_eat = self._announce_meal(curr_recc_action.meal)
-                action = action._replace(CHO=to_eat)
-            if curr_recc_action.physical != 0:
-                action = action._replace(physical=curr_recc_action.physical)
+            random.seed(self.seed)
+            # random chance to not carry out action
+            if random.random() < self.prob:
+                if curr_recc_action.meal != 0:
+                    print(f"eating {curr_recc_action.meal}")
+                    to_eat = self._announce_meal(curr_recc_action.meal)
+                    action = action._replace(CHO=to_eat)
+                elif curr_recc_action.physical != 0:
+                    print("exercising")
+                    heartbeat = TrapezoidFunc(curr_recc_action.physical, 
+                                              curr_recc_action.times[0], 
+                                              curr_recc_action.times[1], 
+                                              curr_recc_action.times[2], 
+                                              curr_recc_action.times[3])
+                    action = action._replace(physical=heartbeat.pop(0) + action.physical)
+                    self.physical_activity_queue.extend(heartbeat)
+                if curr_recc_action.metformin != 0:
+                    action = action._replace(metformin=curr_recc_action.metformin)
+
+        if len(self.physical_activity_queue) != 0:
+            action = action._replace(physical=self.physical_activity_queue.pop(0) + action.physical)
 
         # Detect eating or not and update last digestion amount
         if action.CHO > 0 and self._last_action.CHO <= 0:
@@ -272,45 +323,3 @@ class T2DPatient(Patient):
         self._last_action = Action(CHO=0, insulin_fast=0, insulin_long=0, metformin=0, vildagliptin=0, stress=0, physical=0)
         self.is_eating = False
         self.planned_meal = 0
-
-
-if __name__ == '__main__':
-    logger.setLevel(logging.INFO)
-    # create console handler and set level to debug
-    ch = logging.StreamHandler()
-    # ch.setLevel(logging.DEBUG)
-    ch.setLevel(logging.INFO)
-    # create formatter
-    formatter = logging.Formatter('%(name)s: %(levelname)s: %(message)s')
-    # add formatter to ch
-    ch.setFormatter(formatter)
-    # add ch to logger
-    logger.addHandler(ch)
-
-    p = T2DPatient.withName('adolescent#001')
-    basal = p._params.u2ss * p._params.BW / 6000  # U/min
-    t = []
-    CHO = []
-    insulin = []
-    BG = []
-    while p.t < 1000:
-        ins = basal
-        carb = 0
-        if p.t == 100:
-            carb = 80
-            ins = 80.0 / 6.0 + basal
-        # if p.t == 150:
-        #     ins = 80.0 / 12.0 + basal
-        act = Action(insulin=ins, CHO=carb)
-        t.append(p.t)
-        CHO.append(act.CHO)
-        insulin.append(act.insulin)
-        BG.append(p.observation.Gsub)
-        p.step(act)
-
-    import matplotlib.pyplot as plt
-    fig, ax = plt.subplots(3, sharex=True)
-    ax[0].plot(t, BG)
-    ax[1].plot(t, CHO)
-    ax[2].plot(t, insulin)
-    plt.show()

@@ -170,11 +170,11 @@ class PhysicalActivityParameters():
     def __init__(self):
         self.tHR = 5
         self.ne = 4
-        self.ae = 0.1
+        self.ae = 5
         self.te = 600
         self.alphae = 0.8
         self.betae = 3.39e-4
-        self.HRb = 80
+        self.HRb = 65
         self.ce1 = 500
         self.ce2 = 100
 

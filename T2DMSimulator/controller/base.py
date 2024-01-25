@@ -1,12 +1,13 @@
 from collections import namedtuple
 
-Action = namedtuple('ctrller_action', ['basal', 'bolus', 'meal','metformin', 'physical', 'time'])
+Action = namedtuple('ctrller_action', ['basal', 'bolus', 'meal','metformin', 'physical', 'time', 'times'])
 
 
 class Controller(object):
-    def __init__(self, init_state):
+    def __init__(self, init_state, seed):
         self.init_state = init_state
         self.state = init_state
+        self._seed = seed
 
     def policy(self, observation, reward, done, **info):
         '''

@@ -48,6 +48,8 @@ def main():
     ## MOD parameters
     #glucoseParams.glucoseMetabolicRates.c5 = glucoseParams.glucoseMetabolicRates.c5 * 2
     #glucoseParams.glucoseMetabolicRates.c2 = glucoseParams.glucoseMetabolicRates.c2 * 2
+    #glucoseParams.physicalActivityParameters.ae = glucoseParams.physicalActivityParameters.ae / 20
+    #glucoseParams.physicalActivityParameters.tHR = glucoseParams.physicalActivityParameters.tHR / 20
 
     patient = T2DPatient({},glucose_params=glucoseParams, name="MARD_baseline")
     sensor = CGMSensor.withName('Dexcom', seed=1)
@@ -63,7 +65,7 @@ def main():
     controller = BaselineController()
 
     # Put them together to create a simulation object
-    s2 = SimObj(env, controller, timedelta(days=30), animate=False, path=path)
+    s2 = SimObj(env, controller, timedelta(days=2), animate=False, path=path)
     results2 = sim(s2)
     s2.save_results()
     print(results2)
