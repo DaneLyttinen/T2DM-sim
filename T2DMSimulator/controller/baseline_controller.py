@@ -72,11 +72,11 @@ class BaselineController(Controller):
 
         if self.meal_count < 3:
             if 6 <= hour_of_day < 10 and self.meal_count == 0:  # Breakfast
-                meal_cho = self.calculate_meal_CHO(maximum_gl, hour_of_day, "breakfast")
+                meal_cho = self.calculate_meal_CHO(maximum_gl, "breakfast")
             elif 12 <= hour_of_day < 14 and self.meal_count == 1:  # Lunch
-                meal_cho = self.calculate_meal_CHO(maximum_gl, hour_of_day, "lunch")
+                meal_cho = self.calculate_meal_CHO(maximum_gl, "lunch")
             elif 17 <= hour_of_day < 20 and self.meal_count == 2:  # Dinner
-                meal_cho = self.calculate_meal_CHO(maximum_gl, hour_of_day, "dinner")
+                meal_cho = self.calculate_meal_CHO(maximum_gl, "dinner")
 
         # Ensure the total CHO intake for the day does not exceed 130g
         if self.total_daily_cho + meal_cho > 130:
@@ -108,7 +108,7 @@ class BaselineController(Controller):
             heart_rate_increase = abs(curr_heart_rate - heart_rate_increase)
         return heart_rate_increase
 
-    def calculate_meal_CHO(self, predicted_glucose, current_time, meal_type):
+    def calculate_meal_CHO(self, predicted_glucose, meal_type):
         # Meal-specific CHO calculation
         if meal_type == "breakfast":
             return 45 if predicted_glucose > 100 else 60
