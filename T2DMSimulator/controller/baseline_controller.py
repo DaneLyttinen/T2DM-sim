@@ -13,7 +13,6 @@ class BaselineController(Controller):
         self.total_daily_cho = 0  
         self.model = None
         self.all_gl_data = []
-        self.last_meal_index = 0
         self.daily_averages = []
         self.max_metformin = 0
         self.administered_metformin = 0
@@ -31,11 +30,12 @@ class BaselineController(Controller):
                 self.model = SARIMAX(endog=self.all_gl_data,order=(4,0,0),enforce_stationarity=False)
                 self.fitted_model = self.model.fit(disp=False)
             predicted_glucose = self.predict_glucose(observation.CGM)
-
-        if len(self.all_gl_data) % 288 == 0:
+        hour_of_day = (len(self.all_gl_data) // 20) % 24 
+        if hour_of_day == 0 and len(self.all_gl_data) > 20:
             self.meal_count = 0
             self.administered_metformin = 0
-            daily_avg = np.mean(self.all_gl_data[-288:])
+            self.total_daily_cho = 0
+            daily_avg = np.mean(self.all_gl_data[-480:])
             self.daily_averages.append(daily_avg)
             self.update_metformin_usage()
         # Apply rule-based logic to decide the action
@@ -77,7 +77,6 @@ class BaselineController(Controller):
                 meal_cho = self.calculate_meal_CHO(maximum_gl, "lunch")
             elif 17 <= hour_of_day < 20 and self.meal_count == 2:  # Dinner
                 meal_cho = self.calculate_meal_CHO(maximum_gl, "dinner")
-
         # Ensure the total CHO intake for the day does not exceed 130g
         if self.total_daily_cho + meal_cho > 130:
             meal_cho = max(0, 130 - self.total_daily_cho)
