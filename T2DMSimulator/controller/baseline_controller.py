@@ -35,6 +35,7 @@ class BaselineController(Controller):
             self.meal_count = 0
             self.administered_metformin = 0
             self.total_daily_cho = 0
+            self.physical_activity_done = np.random.rand() > 0.5
             daily_avg = np.mean(self.all_gl_data[-480:])
             self.daily_averages.append(daily_avg)
             self.update_metformin_usage()

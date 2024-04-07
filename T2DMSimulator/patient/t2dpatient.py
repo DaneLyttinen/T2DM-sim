@@ -179,9 +179,11 @@ class T2DPatient(Patient):
                     self.physical_activity_queue.extend(heartbeat)
                 if curr_recc_action.metformin != 0:
                     action = action._replace(metformin=curr_recc_action.metformin)
-
+        physical_activity_heart_beat = 0
+        original_heart_beat = action.physical
         if len(self.physical_activity_queue) != 0:
-            action = action._replace(physical=self.physical_activity_queue.pop(0) + action.physical)
+            physical_activity_heart_beat = self.physical_activity_queue.pop(0)
+            action = action._replace(physical=physical_activity_heart_beat + action.physical)
 
         # Detect eating or not and update last digestion amount
         if action.CHO > 0 and self._last_action.CHO <= 0:
@@ -215,6 +217,8 @@ class T2DPatient(Patient):
         else:
             logger.error('ODE solver failed!!')
             raise
+        # return new named tuple with the rise in heartbeat due to Physical Activity
+        return action._replace(physical=physical_activity_heart_beat), original_heart_beat
 
     @staticmethod
     def model(t, x, action, basal, glucose_parameters, self):

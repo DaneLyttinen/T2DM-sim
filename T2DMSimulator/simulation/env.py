@@ -1,10 +1,10 @@
-from patient.t2dpatient import Action
-from analysis.risk import risk_index
+from ..patient.t2dpatient import Action
+from ..analysis.risk import risk_index
 import pandas as pd
 from datetime import timedelta
 import logging
 from collections import namedtuple
-from simulation.rendering import Viewer
+from ..simulation.rendering import Viewer
 
 try:
     from rllab.envs.base import Step
@@ -23,6 +23,14 @@ except ImportError:
 Observation = namedtuple("Observation", ["CGM"])
 logger = logging.getLogger(__name__)
 
+def add_tuples(t1, t2):
+    return Action(*((a + b)  for a, b in zip(t1, t2)))
+
+def divide_tuple(t, divisor):
+    # Validate divisor to avoid division by zero
+    if divisor == 0:
+        raise ValueError("Divisor cannot be zero.")
+    return Action(*(value / divisor for value in t))
 
 def risk_diff(BG_last_hour):
     if len(BG_last_hour) < 2:
@@ -57,13 +65,13 @@ class T2DSimEnv(object):
         patient_mdl_act = Action(insulin_fast=insulin_fast, CHO=CHO, insulin_long=patient_action.insulin_long, metformin=metformin, vildagliptin=0,physical=80., stress=patient_action.stress)
 
         # State update
-        self.patient.step(patient_mdl_act, action)
+        taken_action, heart_beat_observation = self.patient.step(patient_mdl_act, action)
 
         # next observation
         BG = self.patient.observation.Gsub
         CGM = self.sensor.measure(self.patient)
 
-        return CHO, insulin, BG, CGM
+        return CHO, insulin, BG, CGM, taken_action, heart_beat_observation
 
     def step(self, action, reward_fun=risk_diff):
         """
@@ -73,15 +81,18 @@ class T2DSimEnv(object):
         insulin = 0.0
         BG = 0.0
         CGM = 0.0
-
+        heart_beat = 0.0
+        merged_taken_action = Action(CHO=0, insulin_fast=0, insulin_long=0, metformin=0, vildagliptin=0, stress=0, physical=0)
         for _ in range(int(self.sample_time)):
             # Compute moving average as the sample measurements
-            tmp_CHO, tmp_insulin, tmp_BG, tmp_CGM = self.mini_step(action)
+            tmp_CHO, tmp_insulin, tmp_BG, tmp_CGM, taken_action, heart_beat_observation = self.mini_step(action)
+            merged_taken_action = add_tuples(merged_taken_action, taken_action)
             CHO += tmp_CHO / self.sample_time
             insulin += tmp_insulin / self.sample_time
             BG += tmp_BG / self.sample_time
             CGM += tmp_CGM / self.sample_time
-
+            heart_beat += heart_beat_observation / self.sample_time
+        #merged_taken_action = divide_tuple(merged_taken_action, self.sample_time)
         # Compute risk index
         horizon = 1
         LBGI, HBGI, risk = risk_index([BG], horizon)
@@ -97,6 +108,8 @@ class T2DSimEnv(object):
         self.risk_hist.append(risk)
         self.LBGI_hist.append(LBGI)
         self.HBGI_hist.append(HBGI)
+        self.BPM_hist.append(heart_beat)
+        self.action_hist.append([merged_taken_action.CHO, merged_taken_action.insulin_fast, merged_taken_action.insulin_long, merged_taken_action.metformin, merged_taken_action.physical, merged_taken_action.stress, merged_taken_action.vildagliptin])
 
         # Compute reward, and decide whether game is over
         window_size = int(60 / self.sample_time)
@@ -134,8 +147,10 @@ class T2DSimEnv(object):
         self.risk_hist = [risk]
         self.LBGI_hist = [LBGI]
         self.HBGI_hist = [HBGI]
+        self.BPM_hist = []
         self.CHO_hist = []
         self.insulin_hist = []
+        self.action_hist = []
 
     def reset(self):
         self.patient.reset()
@@ -184,6 +199,8 @@ class T2DSimEnv(object):
         df["insulin"] = pd.Series(self.insulin_hist)
         df["LBGI"] = pd.Series(self.LBGI_hist)
         df["HBGI"] = pd.Series(self.HBGI_hist)
+        df["BPM"] = pd.Series(self.BPM_hist)
         df["Risk"] = pd.Series(self.risk_hist)
+        df["actions"] = pd.Series(self.action_hist)
         df = df.set_index("Time")
         return df
