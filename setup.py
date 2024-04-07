@@ -12,9 +12,9 @@ setup(
     install_requires=[
         "gymnasium~=0.29.1",
         "pathos>=0.3.1",
-        "scipy>=1.11.0",
+        "scipy>=1.7.0",
         "matplotlib>=3.7.2",
-        "numpy>=1.25.0",
+        "numpy>=1.20.3",
         "pandas>=2.0.3",
     ],
     include_package_data=True,
