@@ -50,7 +50,7 @@ class T2DPatient(Patient):
         '''
         self._params = params
         self.name = name
-        self.__param = GlucoseParameters() if glucose_params == None else glucose_params
+        self.param = GlucoseParameters() if glucose_params == None else glucose_params
         self.GBPC0 = 7/0.0555 if GBPC0 is None else GBPC0
         self.IBPF0 = 1 if IBPF0 is None else IBPF0
         self.brates = {'rBGU': 70, 'rRBCU': 10, 'rGGU': 20, 'rPGU': 35, 'rHGU': 20} if brates is None else brates
@@ -63,7 +63,7 @@ class T2DPatient(Patient):
         self.physical_activity_queue = []
         self.heart_rates_running = [55,56,55]
         self.constraints = constraints
-        self.X0v, self.rates, self.SB = GlucoseInitializer(self.__param, self).calculate_values()
+        self.X0v, self.rates, self.SB = GlucoseInitializer(self.param, self).calculate_values()
         self.reset()
 
     @property
@@ -187,13 +187,14 @@ class T2DPatient(Patient):
 
         # Detect eating or not and update last digestion amount
         if action.CHO > 0 and self._last_action.CHO <= 0:
-            logger.info('t = {}, patient starts eating ...'.format(self.t))
-            self._last_Qsto = self.state[0] + self.state[1]  # unit: mg
+            print('t = {}, patient starts eating ...'.format(self.t))
+            #self._last_Qsto = self.state[0] + self.state[1]  # unit: mg
             self._last_foodtaken = 0  # unit: g
             self.is_eating = True
 
         if to_eat > 0:
-            logger.debug('t = {}, patient eats {} g'.format(
+           print(f"{self._odesolver.t} + {self.sample_time}")
+           print('t = {}, patient eats {} g'.format(
                 self.t, action.CHO))
 
         if self.is_eating:
@@ -211,7 +212,7 @@ class T2DPatient(Patient):
         self._last_action = action
 
         # ODE solver
-        self._odesolver.set_f_params(action, self.basal, self.__param, self)
+        self._odesolver.set_f_params(action, self.basal, self.param, self)
         if self._odesolver.successful():
             self._odesolver.integrate(self._odesolver.t + self.sample_time)
         else:
@@ -222,6 +223,7 @@ class T2DPatient(Patient):
 
     @staticmethod
     def model(t, x, action, basal, glucose_parameters, self):
+        t = round(t)
         action = self._last_action
         Dg = action.CHO * 1e3
         long_insulin = action.insulin_long * 1e2
@@ -301,20 +303,20 @@ class T2DPatient(Patient):
         #     self.init_state = self._init_state
 
         self.random_state = np.random.RandomState(self.seed)
-        if self.random_init_bg:
-            # Only randomize glucose related states, x4, x5, and x13
-            mean = [
-                1.0 * self.init_state[3], 1.0 * self.init_state[4],
-                1.0 * self.init_state[12]
-            ]
-            cov = np.diag([
-                0.1 * self.init_state[3], 0.1 * self.init_state[4],
-                0.1 * self.init_state[12]
-            ])
-            bg_init = self.random_state.multivariate_normal(mean, cov)
-            self.init_state[3] = 1.0 * bg_init[0]
-            self.init_state[4] = 1.0 * bg_init[1]
-            self.init_state[12] = 1.0 * bg_init[2]
+        # if self.random_init_bg:
+        #     # Only randomize glucose related states, x4, x5, and x13
+        #     mean = [
+        #         1.0 * self.init_state[3], 1.0 * self.init_state[4],
+        #         1.0 * self.init_state[12]
+        #     ]
+        #     cov = np.diag([
+        #         0.1 * self.init_state[3], 0.1 * self.init_state[4],
+        #         0.1 * self.init_state[12]
+        #     ])
+        #     bg_init = self.random_state.multivariate_normal(mean, cov)
+        #     self.init_state[3] = 1.0 * bg_init[0]
+        #     self.init_state[4] = 1.0 * bg_init[1]
+        #     self.init_state[12] = 1.0 * bg_init[2]
 
         #self._last_Qsto = self.init_state[0] + self.init_state[1]
         self._last_foodtaken = 0
