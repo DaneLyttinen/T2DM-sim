@@ -6,6 +6,7 @@ sys.path.append('C:\\Users\\Dane\\Desktop\\Masters\\T2DM-sim\\T2DMSimulator')
 from T2DMSimulator.glucose.GlucoseParameters import GlucoseParameters
 from T2DMSimulator.simulation.env import T2DSimEnv
 from T2DMSimulator.controller.basal_bolus_ctrller import BBController
+from T2DMSimulator.controller.baseline_controller import BaselineController
 from T2DMSimulator.sensor.cgm import CGMSensor
 from T2DMSimulator.actuator.pump import InsulinPump
 from T2DMSimulator.patient.t2dpatient import T2DPatient
@@ -93,16 +94,17 @@ def main():
     pump = InsulinPump.withName('Insulet')
     # custom scenario is a list of tuples (time, meal_size)
     scen = []
-    for i in range(1):
-        scen.extend([(7 + (i * 24), 30, "meal"), (12 + (i * 24), 50, "meal"),(14 + (i * 24),500,"metformin") ,(18 + (i * 24), 120, "meal")])
+    #for i in range(5):
+    i = 5
+    scen.extend([(7 + (i * 24), 30, "meal"), (12 + (i * 24), 50, "meal"),(14 + (i * 24),500,"metformin") ,(18 + (i * 24), 120, "meal")])
     scenario = CustomScenario(start_time=start_time, scenario=scen)
     env = T2DSimEnv(patient, sensor, pump, scenario)
 
     # Create a controller
-    controller = BBController()
+    controller = BaselineController()
 
     # Put them together to create a simulation object
-    s2 = SimObj(env, controller, timedelta(days=1), animate=False, path=path)
+    s2 = SimObj(env, controller, timedelta(days=5), animate=False, path=path)
     results2 = sim(s2)
     s2.save_results()
     print(results2)
