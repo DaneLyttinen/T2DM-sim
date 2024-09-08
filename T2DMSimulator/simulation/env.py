@@ -1,10 +1,15 @@
-from ..patient.t2dpatient import Action
+from T2DMSimulator.actuator.pump import InsulinPump
+from T2DMSimulator.sensor.cgm import CGMSensor
+from T2DMSimulator.simulation.scenario import CustomScenario
+from T2DMSimulator.utils.glucose_params_subtypes import get_mard_params
+from ..patient.t2dpatient import Action, T2DPatient
 from ..analysis.risk import risk_index
 import pandas as pd
 from datetime import timedelta
 import logging
 from collections import namedtuple
 from ..simulation.rendering import Viewer
+import numpy as np
 
 try:
     from rllab.envs.base import Step
@@ -41,8 +46,19 @@ def risk_diff(BG_last_hour):
         return risk_prev - risk_current
 
 
+def create_month_scenario():
+    from datetime import timedelta
+    from datetime import datetime
+    now = datetime.now()
+    start_time = datetime.combine(now.date(), datetime.min.time())
+    scen = []
+    for i in range(30):
+        scen.extend([(7 + (i * 24), 30, "meal"), (12 + (i * 24), 50, "meal"),(14 + (i * 24),500,"metformin") ,(18 + (i * 24), 120, "meal")])
+    scenario = CustomScenario(start_time=start_time, scenario=scen)
+    return scenario
+
 class T2DSimEnv(object):
-    def __init__(self, patient, sensor, pump, scenario):
+    def __init__(self, patient=T2DPatient({},glucose_params=get_mard_params(), name="MARD"), sensor=CGMSensor.withName('Dexcom', seed=1), pump=InsulinPump.withName('Insulet'), scenario=create_month_scenario()):
         self.patient = patient
         self.sensor = sensor
         self.pump = pump
@@ -63,7 +79,6 @@ class T2DSimEnv(object):
         metformin = patient_action.metformin
         insulin_fast = patient_action.insulin_fast
         patient_mdl_act = Action(insulin_fast=insulin_fast, CHO=CHO, insulin_long=patient_action.insulin_long, metformin=metformin, vildagliptin=0,physical=80., stress=patient_action.stress)
-
         # State update
         taken_action, heart_beat_observation = self.patient.step(patient_mdl_act, action)
 
@@ -86,6 +101,7 @@ class T2DSimEnv(object):
         for _ in range(int(self.sample_time)):
             # Compute moving average as the sample measurements
             tmp_CHO, tmp_insulin, tmp_BG, tmp_CGM, taken_action, heart_beat_observation = self.mini_step(action)
+            
             merged_taken_action = add_tuples(merged_taken_action, taken_action)
             CHO += tmp_CHO / self.sample_time
             insulin += tmp_insulin / self.sample_time
@@ -109,7 +125,7 @@ class T2DSimEnv(object):
         self.LBGI_hist.append(LBGI)
         self.HBGI_hist.append(HBGI)
         self.BPM_hist.append(heart_beat)
-        self.action_hist.append([merged_taken_action.CHO, merged_taken_action.insulin_fast, merged_taken_action.insulin_long, merged_taken_action.metformin, merged_taken_action.physical, merged_taken_action.stress, merged_taken_action.vildagliptin])
+        self.action_hist.append(np.array([merged_taken_action.CHO, merged_taken_action.insulin_fast, merged_taken_action.insulin_long, merged_taken_action.metformin, merged_taken_action.physical, merged_taken_action.stress, merged_taken_action.vildagliptin], dtype=np.float32))
 
         # Compute reward, and decide whether game is over
         window_size = int(60 / self.sample_time)
